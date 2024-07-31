@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
  
-frameWidth = 320
-frameHeight = 320
-cap = cv2.VideoCapture("test-3.mp4")
+frameWidth = 480
+frameHeight = 480
+cap = cv2.VideoCapture("test.mp4")
 cap.set(3, frameWidth)
 cap.set(4, frameHeight)
  
@@ -29,7 +29,7 @@ while True:
         frameCounter=0
  
     _, img = cap.read()
-    img = cv2.resize(img,(320,320)) # RESIZE
+    img = cv2.resize(img,(480,480)) # RESIZE
     blurred_image = cv2.GaussianBlur(img, (3, 3), 0)
     imgHsv = cv2.cvtColor(blurred_image, cv2.COLOR_BGR2HSV)
  
