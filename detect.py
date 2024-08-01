@@ -161,7 +161,7 @@ def main():
     Capture video frames, perform damage detection, calculate the steering angle,
     and display the results with FPS and average FPS.
     """
-    cap = cv2.VideoCapture('test.mp4')
+    cap = cv2.VideoCapture(0)
     cap.set(3, frame_width)
     cap.set(4, frame_height)
     
@@ -220,6 +220,7 @@ def main():
             writer.release()
             cv2.destroyAllWindows()
 
+        # Serial to arduino
         serial = f"{angle};{END};{totalBocor};{totalRetak}"
 
 if __name__ == '__main__':
