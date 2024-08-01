@@ -1,6 +1,6 @@
 import cv2
 import cvzone
-from ultralytics import YOLO
+from ultralytics import YOLOv10
 import math
 from sort import *
 import numpy as np
@@ -8,9 +8,10 @@ import utlis
 import time
 from datetime import datetime
 import os
+from pathlib import Path
 
 # Load YOLO model for object detection
-model = YOLO("model/auv_openvino_model", task="detect")
+model = YOLOv10("model/auv_openvino_model", task="detect")
 classNames = ["Bocor", "Retak"]
 frame_width = 480
 frame_height = 480
@@ -63,7 +64,7 @@ def getPipeCurve(img, imgOri, imageDetect, display=2):
         cv2.line(imgResult, (frame_width // 2, frame_height // 2), (basePoint, frame_height // 2), (0, 255, 0), 1, lineType=cv2.LINE_AA)
         cvzone.putTextRect(imgResult, f'Steering Angle: {str(angle)}', (0, 30), scale=1.3, thickness=2, offset=3)
     if display == 2:
-        imgStacked = utlis.stackImages(0.9, ([imgOri, imgResult], [imgThres, imageDetect]))
+        imgStacked = utlis.stackImages(0.9, ([imgOri, imageDetect], [imgThres, imgResult]))
         cv2.imshow('ImageStack', imgStacked)
     elif display == 1:
         cv2.imshow('Result', imgResult)
@@ -98,12 +99,24 @@ def detectDamage(model, img, tracker):
             x1, y1, x2, y2 = box.xyxy[0]
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
             w, h = x2 - x1, y2 - y1
+            cx, cy = x1 + w // 2, y1 + h // 2
 
             # Confidence
             conf = math.ceil((box.conf[0] * 100)) / 100
             # Class Name
             cls = int(box.cls[0])
             currentClass = classNames[cls]
+
+            if currentClass == "Bocor":
+                color = bocorColor
+            elif currentClass == "Retak":
+                color = retakColor
+
+            cvzone.cornerRect(imageDetect, (x1, y1, w, h), l=9, rt=2, colorR=color, colorC=color)
+            cvzone.putTextRect(imageDetect, f'{currentClass} {conf}', (max(0, x1), max(35, y1)),
+                            scale=1.1, thickness=2, offset=3, colorR=color)
+            cv2.circle(imageDetect, (cx, cy), 3, color, cv2.FILLED)
+
 
             if (currentClass == "Bocor" or currentClass == "Retak") and conf > 0.5:
                 currentArray = np.array([x1, y1, x2, y2, conf])
@@ -113,22 +126,14 @@ def detectDamage(model, img, tracker):
 
     cv2.line(imageDetect, (limits[0], limits[1]), (limits[2], limits[3]), (0, 0, 255), 3)
 
+    result_dir = Path("./hasil")
+    result_dir.mkdir(exist_ok=True)
+
     for result in resultsTracker:
         x1, y1, x2, y2, id = result
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
         w, h = x2 - x1, y2 - y1
-
-        if currentClass == "Bocor":
-            color = bocorColor
-        elif currentClass == "Retak":
-            color = retakColor
-
-        cvzone.cornerRect(imageDetect, (x1, y1, w, h), l=9, rt=2, colorR=color, colorC=color)
-        cvzone.putTextRect(imageDetect, f'{currentClass} {conf}', (max(0, x1), max(35, y1)),
-                           scale=1.1, thickness=2, offset=3, colorR=color)
-
         cx, cy = x1 + w // 2, y1 + h // 2
-        cv2.circle(imageDetect, (cx, cy), 3, color, cv2.FILLED)
 
         if limits[0] < cx < limits[2] and limits[1] - 10 < cy < limits[1] + 10:
             now = datetime.now()
