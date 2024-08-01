@@ -8,3 +8,5 @@ lapx==0.5.9.post1
 filterpy==1.4.5
 scikit-image==0.24.0
 scipy==1.13.1
+torch==2.3.1
+torchvision==0.18.1
