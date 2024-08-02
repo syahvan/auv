@@ -4,6 +4,7 @@ from ultralytics import YOLOv10
 import math
 from sort import *
 import numpy as np
+import pandas as pd
 import utlis
 import time
 from datetime import datetime
@@ -80,7 +81,7 @@ def getPipeCurve(img, fps, imageDetect, display=2):
     return angle, END
 
 
-def detectDamage(model, img, tracker):
+def detectDamage(model, img, tracker, fps):
     """
     Detect damage (leak or crack) in the image using the YOLO model and track detected objects.
 
@@ -88,20 +89,25 @@ def detectDamage(model, img, tracker):
     model (YOLO): Pre-trained YOLO model.
     img (numpy.ndarray): Input image.
     tracker (Sort): Sort tracker object.
+    fps (float): Frames per second value.
 
     Returns:
     imageDetect (numpy.ndarray): Image with detected and tracked objects.
     totalBocor (int): Total count of leaks detected.
     totalRetak (int): Total count of cracks detected.
     DETECT (int): Indicator for the type of damage detected (0 for none, 1 for leak, 2 for crack).
+    detection_data (list): List of tuples containing detection time, fps, currentClass, and confidence.
     """
     imageDetect = img.copy()
     DETECT = 0
+    result_dir = Path("./hasil/images")
+    result_dir.mkdir(exist_ok=True)
 
     # Perform detection using the YOLO model
     results = model(imageDetect, stream=True, imgsz=480, verbose=True)
 
     detections = np.empty((0, 5))
+    detection_data = []  # Store detection data
 
     for r in results:
         boxes = r.boxes
@@ -135,14 +141,15 @@ def detectDamage(model, img, tracker):
                 currentArray = np.array([x1, y1, x2, y2, conf])
                 detections = np.vstack((detections, currentArray))
 
+                # Capture detection time
+                detection_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                detection_data.append((detection_time, fps, currentClass, conf))
+
     # Update tracker with new detections
     resultsTracker = tracker.update(detections)
 
     # Draw the detection limits line
     cv2.line(imageDetect, (limits[0], limits[1]), (limits[2], limits[3]), (0, 0, 255), 3)
-
-    result_dir = Path("./hasil")
-    result_dir.mkdir(exist_ok=True)
 
     for result in resultsTracker:
         x1, y1, x2, y2, id = result
@@ -157,14 +164,14 @@ def detectDamage(model, img, tracker):
             if bocorCount.count(id) == 0 and currentClass == "Bocor":
                 bocorCount.append(id)
                 cv2.line(imageDetect, (limits[0], limits[1]), (limits[2], limits[3]), (0, 255, 0), 3)
-                filename = os.path.join('hasil', f"bocor_{timestamp}.jpg")
+                filename = os.path.join(result_dir, f"bocor_{timestamp}.jpg")
                 cv2.imwrite(filename, imageDetect)
                 print(f"Frame saved: {filename}")
                 DETECT = 1
             elif retakCount.count(id) == 0 and currentClass == "Retak":
                 retakCount.append(id)
                 cv2.line(imageDetect, (limits[0], limits[1]), (limits[2], limits[3]), (0, 255, 0), 3)
-                filename = os.path.join('hasil', f"retak_{timestamp}.jpg")
+                filename = os.path.join(result_dir, f"retak_{timestamp}.jpg")
                 cv2.imwrite(filename, imageDetect)
                 print(f"Frame saved: {filename}")
                 DETECT = 2
@@ -178,7 +185,7 @@ def detectDamage(model, img, tracker):
     cvzone.putTextRect(imageDetect, f'Total Bocor: {totalBocor}', (0, 30), scale=1.3, thickness=2, offset=3)
     cvzone.putTextRect(imageDetect, f'Total Retak: {totalRetak}', (0, 55), scale=1.3, thickness=2, offset=3)
 
-    return imageDetect, totalBocor, totalRetak, DETECT
+    return imageDetect, totalBocor, totalRetak, DETECT, detection_data
 
 def send_to_arduino(data):
     """
@@ -199,7 +206,6 @@ def send_to_arduino(data):
 
 
 def main():
-
     # Open video file for reading
     cap = cv2.VideoCapture(0)
     cap.set(3, frame_width)  # Set the frame width
@@ -214,6 +220,12 @@ def main():
 
     # Initialize object tracker
     tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
+
+    # Initialize dataframe
+    detection_df = pd.DataFrame(columns=["time", "fps", "class", "confidence"])
+    result_dir = Path("./hasil")
+    result_dir.mkdir(exist_ok=True)
+    csv_path = result_dir / "detection_log.csv"
 
     while cap.isOpened():
         # Exit the loop if 'q' is pressed
@@ -239,7 +251,7 @@ def main():
         prev_frame_time = new_frame_time 
 
         # Perform damage detection and track objects
-        imageDetect, totalBocor, totalRetak, DETECT = detectDamage(model, img, tracker)
+        imageDetect, totalBocor, totalRetak, DETECT, detection_data = detectDamage(model, img, tracker, fps)
         
         # Calculate the steering angle and check if the end condition is met
         angle, END = getPipeCurve(img, fps, imageDetect, display=1)
@@ -253,6 +265,15 @@ def main():
         # Prepare the message to send to the Arduino
         message = f"{angle};{END};{DETECT}"
         send_to_arduino(message)  # Send the message via serial communication
+
+        # Update and save the dataframe
+        for detection in detection_data:
+            detection_series = pd.Series(detection, index=detection_df.columns)
+            detection_df = pd.concat([detection_df, detection_series.to_frame().T], ignore_index=True)
+        detection_df.to_csv(csv_path, index=False)
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
