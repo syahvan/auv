@@ -100,7 +100,7 @@ def detectDamage(model, img, tracker, fps):
     """
     imageDetect = img.copy()
     DETECT = 0
-    result_dir = Path("./hasil/images")
+    result_dir = Path("./result/images")
     result_dir.mkdir(exist_ok=True)
 
     # Perform detection using the YOLO model
@@ -215,17 +215,17 @@ def main():
     prev_frame_time = 0
     new_frame_time = 0
 
+    # Initialize dataframe
+    detection_df = pd.DataFrame(columns=["time", "fps", "class", "confidence"])
+    result_dir = Path("./result")
+    result_dir.mkdir(exist_ok=True)
+    csv_path = result_dir / "detection_log.csv"
+
     # Open video file for writing the processed frames
-    writer = cv2.VideoWriter('record.mp4', cv2.VideoWriter_fourcc(*'mp4v'), int(cap.get(cv2.CAP_PROP_FPS)), (frame_width, frame_height))
+    writer = cv2.VideoWriter('result/record.mp4', cv2.VideoWriter_fourcc(*'mp4v'), int(cap.get(cv2.CAP_PROP_FPS)), (frame_width, frame_height))
 
     # Initialize object tracker
     tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
-
-    # Initialize dataframe
-    detection_df = pd.DataFrame(columns=["time", "fps", "class", "confidence"])
-    result_dir = Path("./hasil")
-    result_dir.mkdir(exist_ok=True)
-    csv_path = result_dir / "detection_log.csv"
 
     while cap.isOpened():
         # Exit the loop if 'q' is pressed
