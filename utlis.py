@@ -66,7 +66,7 @@ def getHistogram(img, minPer=0.1, display=False, region=1):
         for x, intensity in enumerate(histValues):
             cv2.line(imgHist, (x, img.shape[0]), (x, img.shape[0] - intensity // 255 // region), (255, 0, 255, 1))
         cv2.circle(imgHist, (basePoint, img.shape[0]), 10, (0, 255, 255), cv2.FILLED)
-        return basePoint, imgHist
+        return basePoint, imgHist, lenIndex
     
     return basePoint, lenIndex
 
