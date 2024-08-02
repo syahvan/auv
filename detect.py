@@ -201,7 +201,7 @@ def send_to_arduino(data):
 def main():
 
     # Open video file for reading
-    cap = cv2.VideoCapture("test.mp4")
+    cap = cv2.VideoCapture(0)
     cap.set(3, frame_width)  # Set the frame width
     cap.set(4, frame_height) # Set the frame height
     
@@ -242,7 +242,7 @@ def main():
         imageDetect, totalBocor, totalRetak, DETECT = detectDamage(model, img, tracker)
         
         # Calculate the steering angle and check if the end condition is met
-        angle, END = getPipeCurve(img, fps, imageDetect, display=2)
+        angle, END = getPipeCurve(img, fps, imageDetect, display=1)
 
         print(f'Angle: {angle}, Total Bocor: {totalBocor}, Total Retak: {totalRetak}')
 
