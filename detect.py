@@ -15,8 +15,8 @@ import serial
 # Load YOLO model for object detection
 model = YOLOv10("model/auv_openvino_model", task="detect")
 # Serial Communication
-arduino = serial.Serial('COM11', 9600, timeout=1)
-# Variables
+arduino = serial.Serial('COM12', 9600, timeout=.1)
+# Variable
 classNames = ["Bocor", "Retak"]
 frame_width = 480
 frame_height = 480
@@ -263,7 +263,7 @@ def main():
             writer.release()
 
         # Prepare the message to send to the Arduino
-        message = f"{angle};{END};{DETECT}"
+        message = f"{angle};{END};{DETECT}\n"
         send_to_arduino(message)  # Send the message via serial communication
 
         # Update and save the dataframe
