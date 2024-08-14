@@ -43,14 +43,13 @@ def getPipeCurve(img, fps, imageDetect, display=2):
     END (bool): Flag indicating if the end condition is met.
     """
     imgResult = img.copy()
-    imageDetect = imageDetect.copy()
 
     # Apply thresholding to the image
     imgThres = utlis.thresholding(img)
 
     # Find the base point and its length index
     basePoint, imgHist, lenIndex = utlis.getHistogram(imgThres, display=True, minPer=0.5)
-    if lenIndex > 400:
+    if lenIndex < 5:
         END = 1
     else:
         END = 0
@@ -100,8 +99,8 @@ def detectDamage(model, img, tracker, fps):
     """
     imageDetect = img.copy()
     DETECT = 0
-    result_dir = Path("./result/images")
-    result_dir.mkdir(exist_ok=True)
+    detect_dir = Path("./result/images")
+    detect_dir.mkdir(exist_ok=True)
 
     # Perform detection using the YOLO model
     results = model(imageDetect, stream=True, imgsz=480, verbose=True)
@@ -143,7 +142,7 @@ def detectDamage(model, img, tracker, fps):
 
                 # Capture detection time
                 detection_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                detection_data.append((detection_time, fps, currentClass, conf))
+                detection_data.append((detection_time, round(fps, 2), currentClass, conf))
 
     # Update tracker with new detections
     resultsTracker = tracker.update(detections)
@@ -164,14 +163,14 @@ def detectDamage(model, img, tracker, fps):
             if bocorCount.count(id) == 0 and currentClass == "Bocor":
                 bocorCount.append(id)
                 cv2.line(imageDetect, (limits[0], limits[1]), (limits[2], limits[3]), (0, 255, 0), 3)
-                filename = os.path.join(result_dir, f"bocor_{timestamp}.jpg")
+                filename = os.path.join(detect_dir, f"bocor_{timestamp}.jpg")
                 cv2.imwrite(filename, imageDetect)
                 print(f"Frame saved: {filename}")
                 DETECT = 1
             elif retakCount.count(id) == 0 and currentClass == "Retak":
                 retakCount.append(id)
                 cv2.line(imageDetect, (limits[0], limits[1]), (limits[2], limits[3]), (0, 255, 0), 3)
-                filename = os.path.join(result_dir, f"retak_{timestamp}.jpg")
+                filename = os.path.join(detect_dir, f"retak_{timestamp}.jpg")
                 cv2.imwrite(filename, imageDetect)
                 print(f"Frame saved: {filename}")
                 DETECT = 2
