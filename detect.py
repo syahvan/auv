@@ -48,7 +48,7 @@ def getPipeCurve(img, fps, imageDetect, display=2):
     imgThres = utlis.thresholding(img)
 
     # Find the base point and its length index
-    basePoint, imgHist, lenIndex = utlis.getHistogram(imgThres, display=True, minPer=0.5)
+    basePoint, imgHist, lenIndex = utlis.getHistogram(imgThres, display=True, minPer=0.3)
     if lenIndex < 5:
         END = 1
     else:
