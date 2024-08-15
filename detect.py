@@ -102,8 +102,12 @@ def detectDamage(model, img, tracker, fps):
     detect_dir = Path("./result/images")
     detect_dir.mkdir(exist_ok=True)
 
+    # Timing inference
+    start_time = time.time() * 1000
     # Perform detection using the YOLO model
     results = model(imageDetect, stream=True, imgsz=480, verbose=True)
+    end_time = time.time() * 1000
+    inference_time = end_time - start_time
 
     detections = np.empty((0, 5))
     detection_data = []  # Store detection data
@@ -142,7 +146,7 @@ def detectDamage(model, img, tracker, fps):
 
                 # Capture detection time
                 detection_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                detection_data.append((detection_time, round(fps, 2), currentClass, conf))
+                detection_data.append((detection_time, round(fps, 2), inference_time, currentClass, conf))
 
     # Update tracker with new detections
     resultsTracker = tracker.update(detections)
@@ -173,7 +177,7 @@ def detectDamage(model, img, tracker, fps):
                 filename = os.path.join(detect_dir, f"retak_{timestamp}.jpg")
                 cv2.imwrite(filename, imageDetect)
                 print(f"Frame saved: {filename}")
-                DETECT = 2
+                DETECT = 1
         else:
             DETECT = 0
 
@@ -215,7 +219,7 @@ def main():
     new_frame_time = 0
 
     # Initialize dataframe
-    detection_df = pd.DataFrame(columns=["time", "fps", "class", "confidence"])
+    detection_df = pd.DataFrame(columns=["time", "fps", "inference_time", "class", "confidence"])
     result_dir = Path("./result")
     result_dir.mkdir(exist_ok=True)
     csv_path = result_dir / "detection_log.csv"
