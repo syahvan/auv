@@ -177,7 +177,7 @@ def detectDamage(model, img, tracker, fps):
                 filename = os.path.join(detect_dir, f"retak_{timestamp}.jpg")
                 cv2.imwrite(filename, imageDetect)
                 print(f"Frame saved: {filename}")
-                DETECT = 2
+                DETECT = 1
         else:
             DETECT = 0
 
