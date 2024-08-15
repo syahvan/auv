@@ -103,11 +103,11 @@ def detectDamage(model, img, tracker, fps):
     detect_dir.mkdir(exist_ok=True)
 
     # Timing inference
-    start_time = time.time() * 1000
+    start_time = time.perf_counter()
     # Perform detection using the YOLO model
     results = model(imageDetect, stream=True, imgsz=480, verbose=True)
-    end_time = time.time() * 1000
-    inference_time = end_time - start_time
+    end_time = time.perf_counter()  
+    inference_time = (end_time - start_time) * 1000
 
     detections = np.empty((0, 5))
     detection_data = []  # Store detection data
@@ -146,7 +146,7 @@ def detectDamage(model, img, tracker, fps):
 
                 # Capture detection time
                 detection_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                detection_data.append((detection_time, round(fps, 2), inference_time, currentClass, conf))
+                detection_data.append((detection_time, round(fps, 2), round(inference_time, 2), currentClass, conf))
 
     # Update tracker with new detections
     resultsTracker = tracker.update(detections)
