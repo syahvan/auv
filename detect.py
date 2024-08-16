@@ -76,11 +76,13 @@ def getPipeCurve(img, fps, imageDetect, display=2):
     elif display == 1:
         imgStacked = utlis.stackImages(0.9, ([imgResult, imageDetect]))
         cv2.imshow('ImageStack', imgStacked)
+
+    print(f'Angle: {angle}')
     
     return angle, END
 
 
-def detectDamage(model, img, tracker, fps):
+def detectDamage(model, img, tracker):
     """
     Detect damage (leak or crack) in the image using the YOLO model and track detected objects.
 
@@ -88,12 +90,9 @@ def detectDamage(model, img, tracker, fps):
     model (YOLO): Pre-trained YOLO model.
     img (numpy.ndarray): Input image.
     tracker (Sort): Sort tracker object.
-    fps (float): Frames per second value.
 
     Returns:
     imageDetect (numpy.ndarray): Image with detected and tracked objects.
-    totalBocor (int): Total count of leaks detected.
-    totalRetak (int): Total count of cracks detected.
     DETECT (int): Indicator for the type of damage detected (0 for none, 1 for leak, 2 for crack).
     detection_data (list): List of tuples containing detection time, fps, currentClass, and confidence.
     """
@@ -102,12 +101,8 @@ def detectDamage(model, img, tracker, fps):
     detect_dir = Path("./result/images")
     detect_dir.mkdir(exist_ok=True)
 
-    # Timing inference
-    start_time = time.perf_counter()
     # Perform detection using the YOLO model
     results = model(imageDetect, stream=True, imgsz=480, verbose=True)
-    end_time = time.perf_counter()  
-    inference_time = (end_time - start_time) * 1000
 
     detections = np.empty((0, 5))
     detection_data = []  # Store detection data
@@ -146,7 +141,7 @@ def detectDamage(model, img, tracker, fps):
 
                 # Capture detection time
                 detection_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                detection_data.append((detection_time, round(fps, 2), round(inference_time, 2), currentClass, conf))
+                detection_data.append([detection_time, currentClass, conf])
 
     # Update tracker with new detections
     resultsTracker = tracker.update(detections)
@@ -184,11 +179,13 @@ def detectDamage(model, img, tracker, fps):
     totalBocor = len(bocorCount)
     totalRetak = len(retakCount)
 
+    print(f'Total Bocor: {totalBocor}, Total Retak: {totalRetak}')
+
     # Display total counts on the image
     cvzone.putTextRect(imageDetect, f'Total Bocor: {totalBocor}', (0, 30), scale=1.3, thickness=2, offset=3)
     cvzone.putTextRect(imageDetect, f'Total Retak: {totalRetak}', (0, 55), scale=1.3, thickness=2, offset=3)
 
-    return imageDetect, totalBocor, totalRetak, DETECT, detection_data
+    return imageDetect, DETECT, detection_data
 
 def send_to_arduino(data):
     """
@@ -219,7 +216,7 @@ def main():
     new_frame_time = 0
 
     # Initialize dataframe
-    detection_df = pd.DataFrame(columns=["time", "fps", "inference_time", "class", "confidence"])
+    detection_df = pd.DataFrame(columns=["time", "class", "confidence", "fps", "inference_time"])
     result_dir = Path("./result")
     result_dir.mkdir(exist_ok=True)
     csv_path = result_dir / "detection_log.csv"
@@ -253,13 +250,15 @@ def main():
         fps = 1 / (new_frame_time - prev_frame_time) if (new_frame_time - prev_frame_time) > 0 else 0
         prev_frame_time = new_frame_time 
 
+        # Timing inference
+        start_time = time.perf_counter()
         # Perform damage detection and track objects
-        imageDetect, totalBocor, totalRetak, DETECT, detection_data = detectDamage(model, img, tracker, fps)
+        imageDetect, DETECT, detection_data = detectDamage(model, img, tracker)
+        end_time = time.perf_counter()  
+        inference_time = (end_time - start_time) * 1000
         
         # Calculate the steering angle and check if the end condition is met
         angle, END = getPipeCurve(img, fps, imageDetect, display=1)
-
-        print(f'Angle: {angle}, Total Bocor: {totalBocor}, Total Retak: {totalRetak}')
 
         if END:
             # Release resources when end condition is met
@@ -271,6 +270,8 @@ def main():
 
         # Update and save the dataframe
         for detection in detection_data:
+            detection.append(round(fps, 2))
+            detection.append(round(inference_time, 2))
             detection_series = pd.Series(detection, index=detection_df.columns)
             detection_df = pd.concat([detection_df, detection_series.to_frame().T], ignore_index=True)
         detection_df.to_csv(csv_path, index=False)
