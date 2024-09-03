@@ -27,16 +27,14 @@ bocorCount = []
 retakCount = []
 bocorColor = (168, 182, 33)
 retakColor = (84, 163, 214)
+DETECT = 0
 
-def getPipeCurve(img, fps, imageDetect, display=2):
+def getPipeCurve(img):
     """
     Calculate the steering angle based on the detected base point.
 
     Parameters:
     img (numpy.ndarray): Input image.
-    fps (float): Frames per second.
-    imageDetect (numpy.ndarray): Image after detection.
-    display (int): Display mode (0: none, 1: result, 2: stacked).
 
     Returns:
     angle (int): Calculated steering angle.
@@ -62,24 +60,14 @@ def getPipeCurve(img, fps, imageDetect, display=2):
     angle = int(sum(angleList) / len(angleList))
 
     # Display the output
-    if display != 0:
-        cv2.line(imgResult, (frame_width // 2, frame_height), (frame_width // 2, frame_height // 2), (0, 0, 255), 2, lineType=cv2.LINE_AA)
-        cv2.line(imgResult, (frame_width // 2, frame_height), (basePoint, frame_height // 2), (0, 255, 0), 1, lineType=cv2.LINE_AA)
-        cv2.line(imgResult, (frame_width // 2, frame_height // 2), (basePoint, frame_height // 2), (0, 255, 0), 1, lineType=cv2.LINE_AA)
-        cvzone.putTextRect(imgResult, f'FPS: {fps:.2f}', (0, 30), scale=1.3, thickness=2, offset=3)
-        cvzone.putTextRect(imgResult, f'Steering Angle: {str(angle)}', (0, 55), scale=1.3, thickness=2, offset=3)
-
-    # Stack images for display
-    if display == 2:
-        imgStacked = utlis.stackImages(0.9, ([imgThres, imgHist], [imgResult, imageDetect]))
-        cv2.imshow('ImageStack', imgStacked)
-    elif display == 1:
-        imgStacked = utlis.stackImages(0.9, ([imgResult, imageDetect]))
-        cv2.imshow('ImageStack', imgStacked)
+    cv2.line(imgResult, (frame_width // 2, frame_height), (frame_width // 2, frame_height // 2), (0, 0, 255), 2, lineType=cv2.LINE_AA)
+    cv2.line(imgResult, (frame_width // 2, frame_height), (basePoint, frame_height // 2), (0, 255, 0), 1, lineType=cv2.LINE_AA)
+    cv2.line(imgResult, (frame_width // 2, frame_height // 2), (basePoint, frame_height // 2), (0, 255, 0), 1, lineType=cv2.LINE_AA)
+    cvzone.putTextRect(imgResult, f'Steering Angle: {str(angle)}', (0, 30), scale=1.3, thickness=2, offset=3)
 
     print(f'Angle: {angle}')
     
-    return angle, END
+    return angle, imgThres, imgHist, imgResult, END
 
 
 def detectDamage(model, img, tracker):
@@ -185,7 +173,26 @@ def detectDamage(model, img, tracker):
     cvzone.putTextRect(imageDetect, f'Total Bocor: {totalBocor}', (0, 30), scale=1.3, thickness=2, offset=3)
     cvzone.putTextRect(imageDetect, f'Total Retak: {totalRetak}', (0, 55), scale=1.3, thickness=2, offset=3)
 
-    return imageDetect, DETECT, detection_data
+    return imageDetect, detection_data, DETECT
+
+def display_video(fps, imgThres, imgHist, imgAngle, imageDetect=None, mode=0):
+    # Write FPS
+    cvzone.putTextRect(imgAngle, f'FPS: {fps:.2f}', (0, 55), scale=1.3, thickness=2, offset=3)
+    # Stack images for display
+    if mode == 1:
+        imgStacked = utlis.stackImages(0.9, ([imgThres, imgHist], [imgAngle, imageDetect]))
+        cv2.imshow('ImageStack', imgStacked)
+    elif mode == 2:
+        imgStacked = utlis.stackImages(0.9, ([imgAngle, imageDetect]))
+        cv2.imshow('ImageStack', imgStacked)
+    elif mode == 3:
+        imgStacked = utlis.stackImages(0.9, ([imgAngle, imgThres]))
+        cv2.imshow('ImageStack', imgStacked)
+    elif mode == 4:
+        cv2.imshow('Angle', imgAngle)
+    elif mode == 5:
+        cvzone.putTextRect(imageDetect, f'FPS: {fps:.2f}', (0, 80), scale=1.3, thickness=2, offset=3)
+        cv2.imshow('Detection', imageDetect)
 
 def send_to_arduino(data):
     """
@@ -202,7 +209,6 @@ def send_to_arduino(data):
     
     # Print a confirmation message indicating the sent data
     print(f"Serial Sent: {data}")
-
 
 
 def main():
@@ -253,16 +259,15 @@ def main():
         # Timing inference
         start_time = time.perf_counter()
         # Perform damage detection and track objects
-        imageDetect, DETECT, detection_data = detectDamage(model, img, tracker)
+        imageDetect, detection_data, DETECT = detectDamage(model, img, tracker)
         end_time = time.perf_counter()  
         inference_time = (end_time - start_time) * 1000
         
         # Calculate the steering angle and check if the end condition is met
-        angle, END = getPipeCurve(img, fps, imageDetect, display=1)
+        angle, imgThres, imgHist, imgAngle, END = getPipeCurve(img)
 
-        if END:
-            # Release resources when end condition is met
-            writer.release()
+        # Display output image
+        display_video(fps, imgThres, imgHist, imgAngle, mode=3)
 
         # Prepare the message to send to the Arduino
         message = f"{angle};{END};{DETECT}\n"
