@@ -19,7 +19,7 @@ def thresholding(img):
     imgHsv = cv2.cvtColor(blurred_image, cv2.COLOR_BGR2HSV)
     
     # Define the HSV range for white color
-    lowerWhite = np.array([93, 179, 0])
+    lowerWhite = np.array([90, 130, 0])
     upperWhite = np.array([112, 255, 150])
     
     # Create a mask for the white color range
